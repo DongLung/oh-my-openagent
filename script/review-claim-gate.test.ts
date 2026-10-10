@@ -81,6 +81,8 @@ describe("merge group review claim gate", () => {
     "refs/heads/gh-readonly-queue/dev/not-a-pr",
     "refs/heads/gh-readonly-queue/dev/pr-0-c78f87ecb",
     "refs/heads/gh-readonly-queue/dev/pr-9878-not-a-sha",
+    `x${"refs/heads/gh-readonly-queue/dev/pr-9878-c78f87ecb"}`,
+    `${"refs/heads/gh-readonly-queue/dev/pr-9878-c78f87ecb"}x`,
   ])("fails closed for an unparseable head ref: %s", async (ref) => {
     await expect(runQueueGate(ref, [])).rejects.toThrow("queued PR number")
   })
