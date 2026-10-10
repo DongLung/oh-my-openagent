@@ -1,4 +1,4 @@
-use super::{match_index, require_command, validate_path, MenuItem};
+use super::{match_index, require_command, require_enabled, validate_path, MenuItem};
 use crate::error::ErrorCode;
 
 fn item(title: &str) -> MenuItem {
@@ -26,6 +26,7 @@ fn a_shared_title_is_ambiguous_at_either_tier() {
     assert_eq!(exact.code, ErrorCode::AxFailed);
     assert!(exact.message.contains("ambiguous"), "{}", exact.message);
     let normalized = match_index(&[item("Save…"), item("Save...")], "save").unwrap_err();
+    assert_eq!(normalized.code, ErrorCode::AxFailed);
     assert!(normalized.message.contains("ambiguous"), "{}", normalized.message);
 }
 
@@ -64,4 +65,21 @@ fn invalid_paths_fail_before_any_native_access() {
     assert!(validate_path(&[" ".into()], true).is_err());
     assert!(validate_path(&vec!["File".into(); 33], true).is_err());
     assert!(validate_path(&vec!["File".into(); 32], false).is_ok());
+}
+
+#[test]
+fn a_disabled_submenu_stops_a_path_walk_and_an_enabled_one_does_not() {
+    let mut submenu = item("Export");
+    submenu.has_submenu = true;
+    assert!(require_enabled(&submenu).is_ok());
+    submenu.enabled = false;
+    let error = require_enabled(&submenu).unwrap_err();
+    assert_eq!(error.code, ErrorCode::AxFailed);
+    assert!(error.message.contains("disabled"), "{}", error.message);
+}
+
+#[test]
+fn a_bare_ellipsis_never_matches_an_untitled_separator() {
+    let error = match_index(&[item(""), item("Save"), item(" ")], "...").unwrap_err();
+    assert!(error.message.contains("not found"), "{}", error.message);
 }

@@ -23,7 +23,7 @@ pub struct MenuItem {
 pub fn validate_path(path: &[String], allow_empty: bool) -> CoreResult<()> {
     if (!allow_empty && path.is_empty()) || path.len() > MAX_PATH_LABELS {
         return Err(DesktopError::invalid_target(format!(
-            "menu path must contain 1..{MAX_PATH_LABELS} labels"
+            "menu path must contain 1..={MAX_PATH_LABELS} labels"
         )));
     }
     if path.iter().any(|label| label.trim().is_empty() || label.contains('\0')) {
@@ -52,7 +52,9 @@ pub fn match_index(items: &[MenuItem], label: &str) -> CoreResult<usize> {
         Unique::None => {}
     }
     let loose = without_ellipsis(label).to_lowercase();
-    match unique(items, |title| without_ellipsis(title).to_lowercase() == loose) {
+    match unique(items, |title| {
+        !without_ellipsis(title).is_empty() && without_ellipsis(title).to_lowercase() == loose
+    }) {
         Unique::One(index) => Ok(index),
         Unique::Many => Err(DesktopError::ax_failed(format!(
             "menu label '{label}' is ambiguous after ellipsis normalization"
@@ -76,16 +78,24 @@ fn unique(items: &[MenuItem], matches: impl Fn(&str) -> bool) -> Unique {
     }
 }
 
+/// Refuses a disabled item. Backends call it on every submenu they open while
+/// walking a path, and [`require_command`] calls it on the leaf.
+pub fn require_enabled(item: &MenuItem) -> CoreResult<()> {
+    if item.enabled {
+        Ok(())
+    } else {
+        Err(DesktopError::ax_failed(format!(
+            "menu item '{}' is disabled; no command was dispatched",
+            item.path.join(" > ")
+        )))
+    }
+}
+
 /// Refuses an item that may not be invoked as a command: disabled, a submenu,
 /// or an untitled separator. Backends re-check this immediately before the
 /// native press, because the app can change it after listing.
 pub fn require_command(item: &MenuItem) -> CoreResult<()> {
-    if !item.enabled {
-        return Err(DesktopError::ax_failed(format!(
-            "menu item '{}' is disabled; no command was dispatched",
-            item.path.join(" > ")
-        )));
-    }
+    require_enabled(item)?;
     if item.has_submenu || item.title.trim().is_empty() {
         return Err(DesktopError::ax_failed(
             "select a named leaf menu command, not a submenu or separator",
