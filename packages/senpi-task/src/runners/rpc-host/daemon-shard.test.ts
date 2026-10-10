@@ -144,3 +144,54 @@ describe("ensureTaskDaemon on an explicit shard endpoint", () => {
     expect(isHostIncompatible(new HostUnavailableError("ensure_failed", { fallbackAllowed: false }))).toBe(false)
   })
 })
+
+/** A running host whose engine rejects every `owner: "caller"` claim with `claimError`. */
+function claimRefusingPort(claimError: Error) {
+  const { port, ensured } = hostPort({ host: running() })
+  const refusing: TaskDaemonHostPort = {
+    ...port,
+    ensureHost: async (input) => {
+      if (input.owner !== undefined) {
+        ensured.push(input)
+        throw claimError
+      }
+      return port.ensureHost(input)
+    },
+  }
+  return { port: refusing, ensured }
+}
+
+describe("ensureTaskDaemon when senpi refuses the p-shard owner claim", () => {
+  test.each([
+    ["a host started by an engine before owner lifetimes", "RPC host does not support owner lifetime registration"],
+    ["a host another live process owns", "RPC host lifetime owner is still alive or its identity is unknown"],
+  ])("#given %s #when the shard is ensured #then it attaches without the claim instead of failing", async (_case, message) => {
+    // given
+    const shard = shardFixture()
+    const { port, ensured } = claimRefusingPort(new Error(message))
+
+    // when
+    const result = await ensureOn(shard.agentDir, shard.socket, port, { key: shard.key, ownerSessionId: "root-session" })
+
+    // then
+    expect(result.action).toBe("reuse")
+    expect(result.socket).toBe(shard.socket)
+    expect(ensured.map((input) => input.owner)).toEqual(["caller", undefined])
+  })
+
+  test("#given a claimed ensure that fails for another reason #when the shard is ensured #then it still fails and is not retried", async () => {
+    // given
+    const shard = shardFixture()
+    const { port, ensured } = claimRefusingPort(new Error("spawn ENOENT"))
+
+    // when
+    const failure = await ensureOn(shard.agentDir, shard.socket, port, { key: shard.key, ownerSessionId: "root-session" }).catch(
+      (error: unknown) => error,
+    )
+
+    // then
+    expect(failure).toBeInstanceOf(HostUnavailableError)
+    expect((failure as HostUnavailableError).reason).toBe("ensure_failed")
+    expect(ensured.map((input) => input.owner)).toEqual(["caller"])
+  })
+})
