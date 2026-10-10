@@ -197,8 +197,9 @@ export const GATEWAY_MIGRATIONS: readonly (readonly string[])[] = [
   // column is carried over verbatim and the two indexes are recreated before the old table drops.
   // This step runs with foreign_keys OFF (set in migrate()): a table drop would otherwise fire
   // foreign-key actions from any extension table referencing `bindings`. The AUTOINCREMENT
-  // high-water mark is carried over so a deleted newest row's key is never reused, and
-  // foreign_key_check must pass before the version bump commits.
+  // high-water mark is carried over so a deleted newest row's key is never reused. Before the
+  // version bump commits, migrate() runs PRAGMA foreign_key_check from TypeScript and throws
+  // (rolling back to v6) if the step introduced a violation referencing `bindings`.
   [
     `CREATE TABLE bindings_v7 (
       seq INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -232,7 +233,6 @@ export const GATEWAY_MIGRATIONS: readonly (readonly string[])[] = [
     "ALTER TABLE bindings_v7 RENAME TO bindings",
     "CREATE UNIQUE INDEX bindings_one_active_thread ON bindings (platform, account_id, chat_id, thread_id) WHERE status = 'active'",
     "CREATE INDEX bindings_session ON bindings (session_durable_id, status)",
-    "SELECT CASE WHEN (SELECT count(*) FROM pragma_foreign_key_check) = 0 THEN 1 ELSE (SELECT 1/0) END",
   ],
 ]
 

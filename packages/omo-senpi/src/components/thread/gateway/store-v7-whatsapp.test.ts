@@ -96,3 +96,46 @@ test("#given an extension table with a plain REFERENCES to bindings #when migrat
     expect((db.query("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(GATEWAY_MIGRATIONS.length)
   } finally { db.close() }
 })
+
+test("#given an extension row orphaned on bindings (a pre-existing violation) #when migrated #then foreign_key_check rolls back to v6 with a clear error", async () => {
+  const h = (harness = createGatewayHarness())
+  const path = gatewayDatabasePath(h.agentDir)
+  v6Fixture(path, [
+    "PRAGMA foreign_keys = OFF",
+    "CREATE TABLE alpha_refs (id INTEGER PRIMARY KEY, binding_seq INTEGER REFERENCES bindings)",
+    "INSERT INTO alpha_refs (id, binding_seq) VALUES (1, 99)",
+    "PRAGMA foreign_keys = ON",
+  ])
+  let error: unknown
+  try {
+    await openAndMigrate(h)
+  } catch (caught) {
+    error = caught
+  }
+  // the error crosses the store-worker boundary, so it arrives as a plain Error carrying the code
+  expect((error as { code?: string }).code).toBe("gateway_migration_failed")
+  expect(String(error)).toContain("bindings")
+  const db = new Database(path)
+  try {
+    expect((db.query("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(GATEWAY_MIGRATIONS.length - 1)
+    expect(db.query("SELECT * FROM alpha_refs").all()).toEqual([{ id: 1, binding_seq: 99 }])
+  } finally { db.close() }
+})
+
+test("#given a v6 store whose extension already holds an orphaned row not on bindings #when migrated #then the pre-existing orphan does not block the upgrade", async () => {
+  const h = (harness = createGatewayHarness())
+  const path = gatewayDatabasePath(h.agentDir)
+  // an orphan on another table (created while foreign keys were off) is not this step's to police
+  v6Fixture(path, [
+    "PRAGMA foreign_keys = OFF",
+    "CREATE TABLE alpha_parent (id INTEGER PRIMARY KEY)",
+    "CREATE TABLE alpha_refs (id INTEGER PRIMARY KEY, parent_id INTEGER REFERENCES alpha_parent)",
+    "INSERT INTO alpha_refs (id, parent_id) VALUES (1, 99)",
+    "PRAGMA foreign_keys = ON",
+  ])
+  await openAndMigrate(h)
+  const db = new Database(path)
+  try {
+    expect((db.query("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(GATEWAY_MIGRATIONS.length)
+  } finally { db.close() }
+})
