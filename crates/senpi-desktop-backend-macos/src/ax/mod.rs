@@ -5,6 +5,7 @@
 mod actions;
 mod foreground;
 mod point_owner;
+mod popup;
 pub(crate) mod element;
 mod props;
 mod tree;
