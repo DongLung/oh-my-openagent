@@ -19,6 +19,30 @@ fn the_exactly_titled_option_is_pressed_and_confirmed_by_the_popup_value() {
 }
 
 #[test]
+fn a_menu_still_open_after_the_choice_is_cancelled_before_returning() {
+    let popup = FakePopup {
+        press_closes_menu: false,
+        ..FakePopup::new("Rich Text", &formats())
+    };
+    choose_in(&popup, "Plain Text", IMMEDIATE).unwrap();
+    assert_eq!(popup.performed(), ["AXPress", "press Plain Text", "AXCancel"]);
+    assert!(!popup.menu_open());
+}
+
+#[test]
+fn a_chosen_option_whose_menu_will_not_close_says_both() {
+    let popup = FakePopup {
+        press_closes_menu: false,
+        cancel_closes: false,
+        ..FakePopup::new("Rich Text", &formats())
+    };
+    let error = choose_in(&popup, "Plain Text", IMMEDIATE).unwrap_err();
+    assert!(error.message.contains("\"Plain Text\" was chosen"), "{}", error.message);
+    assert!(error.message.contains("still open"), "{}", error.message);
+    assert_eq!(popup.value().as_deref(), Some("Plain Text"));
+}
+
+#[test]
 fn a_popup_already_showing_the_value_is_left_untouched() {
     let popup = FakePopup::new("Plain Text", &formats());
     choose_in(&popup, "Plain Text", IMMEDIATE).unwrap();

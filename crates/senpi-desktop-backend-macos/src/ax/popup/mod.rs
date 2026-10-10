@@ -47,7 +47,7 @@ impl Waits {
     pub(super) const LIVE: Self = Self {
         menu_open: Duration::from_millis(1000),
         choice_settle: Duration::from_millis(1000),
-        menu_close: Duration::from_millis(300),
+        menu_close: Duration::from_millis(500),
         poll_interval: Duration::from_millis(25),
     };
 }
@@ -71,9 +71,26 @@ pub(super) fn choose_in<P: PopupControl>(popup: &P, value: &str, waits: Waits) -
         .map_err(|refusal| DesktopError::ax_failed(refusal_message(&refusal, value, &titles)))
         .and_then(|index| press_option(popup, &items[index], value, waits));
     match result {
+        Ok(()) if opened => settle_closed(popup, value, waits),
         Err(error) if opened && !close_menu(popup, waits) => Err(menu_left_open(error)),
         result => result,
     }
+}
+
+/// AppKit tears a chosen menu's accessibility element down shortly after the
+/// press; waiting for it keeps the next call or screenshot from seeing a dying
+/// menu, and one that lingers is cancelled.
+fn settle_closed<P: PopupControl>(popup: &P, value: &str, waits: Waits) -> CoreResult<()> {
+    let closed = poll(waits.menu_close, waits.poll_interval, || {
+        (!popup.menu_open()).then_some(())
+    })
+    .is_some();
+    if closed || close_menu(popup, waits) {
+        return Ok(());
+    }
+    Err(DesktopError::ax_failed(format!(
+        "popup option \"{value}\" was chosen, but the menu this call opened is still open"
+    )))
 }
 
 fn menu_left_open(mut error: DesktopError) -> DesktopError {

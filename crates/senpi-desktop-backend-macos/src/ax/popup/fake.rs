@@ -34,6 +34,7 @@ pub(super) struct FakePopup {
     pub(super) options: Vec<FakeOption>,
     pub(super) menu_open: RefCell<bool>,
     pub(super) cancel_closes: bool,
+    pub(super) press_closes_menu: bool,
     pub(super) app_takes_choice: bool,
     pub(super) performed: RefCell<Vec<String>>,
 }
@@ -48,6 +49,7 @@ impl FakePopup {
             options: options.to_vec(),
             menu_open: RefCell::new(false),
             cancel_closes: true,
+            press_closes_menu: true,
             app_takes_choice: true,
             performed: RefCell::new(Vec::new()),
         }
@@ -116,11 +118,12 @@ impl PopupControl for FakePopup {
     fn press_item(&self, item: &usize) -> CoreResult<()> {
         let title = self.options[*item].title;
         self.performed.borrow_mut().push(format!("press {title}"));
-        *self.menu_open.borrow_mut() = false;
+        if self.press_closes_menu {
+            *self.menu_open.borrow_mut() = false;
+        }
         if self.app_takes_choice {
             *self.value.borrow_mut() = Some(title.to_owned());
         }
         Ok(())
     }
 }
-

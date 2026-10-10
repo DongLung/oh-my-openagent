@@ -75,7 +75,7 @@ fn menu_gone_after(popup: &AXUIElement) -> Option<Duration> {
     None
 }
 
-fn report(step: &str, popup: &AXUIElement, result: &Result<(), String>) -> Option<Duration> {
+fn report(step: &str, popup: &AXUIElement, result: &Result<(), String>) -> bool {
     let menu_open_at_return = menu_open(popup);
     let gone = menu_gone_after(popup);
     println!(
@@ -86,7 +86,7 @@ fn report(step: &str, popup: &AXUIElement, result: &Result<(), String>) -> Optio
         current_front_pid(),
         result.as_ref().err(),
     );
-    gone
+    menu_open_at_return
 }
 
 #[test]
@@ -117,30 +117,30 @@ fn set_value_on_a_native_popup_chooses_refuses_and_leaves_no_menu_open() {
             started.elapsed() < WINDOW_DEADLINE,
             "the fixture's popup never appeared"
         );
-        std::thread::yield_now();
+        std::thread::sleep(Duration::from_millis(50));
     };
     println!("fixture_pid={} front_before={front_before:?}", fixture.0.id());
 
     let chosen = actions::set_value(&popup, "Web Page (.html)").map_err(|error| error.message);
-    let gone = report("choose", &popup, &chosen);
+    let open_at_return = report("choose", &popup, &chosen);
     assert_eq!(chosen, Ok(()));
     assert_eq!(
         element::copy_string(&popup, "AXValue").as_deref(),
         Some("Web Page (.html)")
     );
-    assert!(gone.is_some(), "the menu stayed open after the choice");
+    assert!(!open_at_return, "the menu stayed open after the choice");
 
     let missing = actions::set_value(&popup, "web page (.html)").map_err(|error| error.message);
-    let gone = report("missing", &popup, &missing);
+    let open_at_return = report("missing", &popup, &missing);
     assert!(missing.is_err());
     assert_eq!(
         element::copy_string(&popup, "AXValue").as_deref(),
         Some("Web Page (.html)")
     );
-    assert!(gone.is_some(), "a refused choice left the menu it opened open");
+    assert!(!open_at_return, "a refused choice left the menu it opened open");
 
     let disabled = actions::set_value(&popup, "Disabled Option").map_err(|error| error.message);
-    let gone = report("disabled", &popup, &disabled);
+    let open_at_return = report("disabled", &popup, &disabled);
     assert!(disabled.is_err());
-    assert!(gone.is_some(), "a disabled option left the menu it opened open");
+    assert!(!open_at_return, "a disabled option left the menu it opened open");
 }
