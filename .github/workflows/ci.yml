@@ -163,8 +163,8 @@ jobs:
     strategy:
       fail-fast: false
       # merge_group uses these same six required contexts, without PR labels.
-      # The combined diff selects heavy work like a PR: runtime changes run
-      # all OS legs (including Windows); docs/metadata retain the fast path.
+      # Queue commits always run heavy validation on every OS leg, including
+      # docs/web-only groups; the fast path remains a pull-request optimization.
       matrix:
         include:
           - os: ubuntu-latest

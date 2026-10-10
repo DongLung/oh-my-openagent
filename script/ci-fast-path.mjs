@@ -114,7 +114,7 @@ export function classifyCiMode({
   headRef = "",
   labels = [],
 }) {
-  // Queue commits use PR diff policy, never generated-release push policy.
+  // Queue commits never use generated-release push policy.
   const classificationEvent = eventName === "merge_group" ? "pull_request" : eventName
   const subject = headCommitMessage.split("\n", 1)[0] ?? ""
   // Provenance is machine-derived, never prose alone: an actual merge commit
@@ -131,6 +131,7 @@ export function classifyCiMode({
   // observe, and it fails open: any event we cannot fully inspect keeps all
   // three operating systems.
   const fullMatrix =
+    eventName === "merge_group" ||
     classificationEvent === "push" ||
     runtimeTouching ||
     releaseStateHeadRef.test(headRef) ||
@@ -140,7 +141,7 @@ export function classifyCiMode({
   return {
     generatedReleasePush,
     webOnly,
-    runHeavy: !(generatedReleasePush || webOnly),
+    runHeavy: eventName === "merge_group" || !(generatedReleasePush || webOnly),
     fullMatrix,
     runtimeTouching,
   }
