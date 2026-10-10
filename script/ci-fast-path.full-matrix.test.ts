@@ -94,6 +94,42 @@ function jobSteps(jobName: string): readonly Record<string, unknown>[] {
 }
 
 describe("full-matrix classification", () => {
+  describe("#given a merge group instead of a pull request", () => {
+    test.each([
+      ["runtime", ["packages/utils/src/index.ts"], true],
+      ["repository prose", ["README.md"], true],
+      ["web-only", ["docs/guide/installation.md"], true],
+      ["unavailable diff", [], false],
+    ])("#then %s uses exactly the pull request policy", (_name, changedPaths, diffAvailable) => {
+      const input = {
+        message: "Merge pull request #6955 from code-yeongyu/release/v5.0.0-beta.8-source-state",
+        changedPaths,
+        diffAvailable,
+        mergeParents: 2,
+      }
+      const queued = classify({ ...input, eventName: "merge_group" })
+      expect(queued).toEqual(classify({ ...input, eventName: "pull_request" }))
+      expect(queued.generatedReleasePush).toBe(false)
+    })
+
+    test("#then only a generated-release push takes the release fast path", () => {
+      const input = {
+        message: "Merge pull request #6955 from code-yeongyu/release/v5.0.0-beta.8-source-state",
+        changedPaths: ["package.json"],
+        mergeParents: 2,
+      }
+      expect(classify({ ...input, eventName: "push" })).toEqual({
+        generatedReleasePush: true,
+        webOnly: false,
+        runHeavy: false,
+        fullMatrix: true,
+        runtimeTouching: true,
+      })
+      expect(classify({ ...input, message: "fix: normal push", eventName: "push" }).runHeavy).toBe(true)
+      expect(classify({ ...input, eventName: "merge_group" }).runHeavy).toBe(true)
+    })
+  })
+
   describe("#given a push event", () => {
     test("#then the full matrix always runs", () => {
       // given / when
