@@ -14,6 +14,8 @@ on:
   schedule:
     - cron: "23 * * * *"
   workflow_dispatch:
+  merge_group:
+    types: [checks_requested]
 
 permissions:
   contents: read
@@ -24,14 +26,20 @@ permissions:
 jobs:
   gate:
     name: Review claim gate
-    if: github.event_name == 'pull_request_target'
+    if: github.event_name == 'pull_request_target' || github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # This job only reads the event payload; neither path needs API access.
+    permissions: {}
     concurrency:
-      group: review-claim-gate-${{ github.event.pull_request.number }}
+      group: review-claim-gate-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: true
     steps:
+      - name: Accept review gate already passed before queue entry
+        if: github.event_name == 'merge_group'
+        run: echo "Review claims were checked on the pull request before queue entry."
       - name: Fail while a review claim label is present
+        if: github.event_name == 'pull_request_target'
         uses: actions/github-script@v9
         with:
           script: |
