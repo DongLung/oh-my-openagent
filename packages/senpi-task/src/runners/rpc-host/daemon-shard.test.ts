@@ -165,6 +165,7 @@ describe("ensureTaskDaemon when senpi refuses the p-shard owner claim", () => {
   test.each([
     ["a host started by an engine before owner lifetimes", "RPC host does not support owner lifetime registration"],
     ["a host another live process owns", "RPC host lifetime owner is still alive or its identity is unknown"],
+    ["a host with no matching registered generation", "RPC host has no matching registered owner-lifetime generation"],
   ])("#given %s #when the shard is ensured #then it attaches without the claim instead of failing", async (_case, message) => {
     // given
     const shard = shardFixture()
