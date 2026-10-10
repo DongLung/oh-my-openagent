@@ -3,6 +3,7 @@
 //! core's `AxRegistry`.
 
 mod actions;
+mod date;
 mod foreground;
 mod point_owner;
 pub(crate) mod element;
