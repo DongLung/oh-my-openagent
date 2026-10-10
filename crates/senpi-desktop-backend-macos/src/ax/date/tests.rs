@@ -1,4 +1,4 @@
-use super::{format_local, parse, write_path, DateRequest, WritePath};
+use super::{format_local, parse, DateRequest};
 
 /// 2026-09-25T17:00:00+02:00.
 const SEPT_25_17H_CEST: f64 = 812_041_200.0;
@@ -31,12 +31,6 @@ fn refusal(text: &str, current: f64) -> String {
         Ok(at) => panic!("{text:?} was written as {}", format_local(at, berlin)),
         Err(reason) => reason,
     }
-}
-
-#[test]
-fn the_write_path_is_a_date_only_when_the_control_reads_one() {
-    assert_eq!(write_path(Some(SEPT_25_17H_CEST)), WritePath::Date(SEPT_25_17H_CEST));
-    assert_eq!(write_path(None), WritePath::Text);
 }
 
 #[test]

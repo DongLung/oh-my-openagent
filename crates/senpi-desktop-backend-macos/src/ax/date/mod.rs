@@ -11,6 +11,9 @@ use civil::{civil_seconds, format_civil, format_offset};
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+mod live_tests;
+
 /// Named by every refusal so a caller can correct its value in one step.
 pub(super) const ACCEPTED_FORMS: &str = "YYYY-MM-DD (keeps the control's time of day), \
                                          YYYY-MM-DDTHH:MM[:SS] (local time), or a date-time \
@@ -35,21 +38,6 @@ pub(super) enum DateRequest {
     Local { date: CivilDate, seconds: f64 },
     /// An exact instant.
     Instant(f64),
-}
-
-/// Which write `set_value` performs, chosen from the control's current
-/// `AXValue` as a `CFDate` (`Some` absolute time) or anything else (`None`).
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(super) enum WritePath {
-    Date(f64),
-    Text,
-}
-
-pub(super) fn write_path(current: Option<f64>) -> WritePath {
-    match current {
-        Some(at) => WritePath::Date(at),
-        None => WritePath::Text,
-    }
 }
 
 /// Parses `YYYY-MM-DD`, `YYYY-MM-DDTHH:MM[:SS[.fraction]]` and either

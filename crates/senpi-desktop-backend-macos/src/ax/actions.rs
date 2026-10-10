@@ -17,9 +17,9 @@ pub(crate) fn perform(element: &AXUIElement, action: &str) -> CoreResult<()> {
 }
 
 pub(super) fn set_value(element: &AXUIElement, value: &str) -> CoreResult<()> {
-    match date::write_path(copy_date(element, "AXValue")) {
-        date::WritePath::Date(current) => set_date_value(element, value, current),
-        date::WritePath::Text => set_string_value(element, value),
+    match copy_date(element, "AXValue") {
+        Some(current) => set_date_value(element, value, current),
+        None => set_string_value(element, value),
     }
 }
 

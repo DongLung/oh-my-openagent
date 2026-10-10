@@ -44,9 +44,7 @@ pub(super) fn ensure_trusted() -> CoreResult<()> {
     if is_trusted() {
         Ok(())
     } else {
-        Err(crate::backend::permissions::permission_denied(
-            TccPermission::Accessibility,
-        ))
+        Err(crate::backend::permissions::permission_denied(TccPermission::Accessibility))
     }
 }
 
@@ -66,8 +64,9 @@ pub(crate) fn create_application(pid: libc::pid_t) -> CoreResult<CFRetained<AXUI
     // SAFETY: AXUIElementCreateApplication accepts any process id and returns
     // a +1 retained CF object.
     let raw = unsafe { AXUIElementCreateApplication(pid) };
-    let pointer = NonNull::new(raw)
-        .ok_or_else(|| DesktopError::ax_failed(format!("AXUIElementCreateApplication({pid}) returned null")))?;
+    let pointer = NonNull::new(raw).ok_or_else(|| {
+        DesktopError::ax_failed(format!("AXUIElementCreateApplication({pid}) returned null"))
+    })?;
     // SAFETY: Create-rule ownership transfers the +1 reference into CFRetained.
     Ok(unsafe { CFRetained::from_raw(pointer) })
 }
@@ -145,12 +144,7 @@ pub(crate) fn copy_element(element: &AXUIElement, attribute: &str) -> Option<CFR
 
 /// The attribute's value as a `CFAbsoluteTime`, when it is a `CFDate`.
 pub(crate) fn copy_date(element: &AXUIElement, attribute: &str) -> Option<f64> {
-    Some(
-        copy_attribute(element, attribute)?
-            .downcast::<CFDate>()
-            .ok()?
-            .absolute_time(),
-    )
+    Some(copy_attribute(element, attribute)?.downcast::<CFDate>().ok()?.absolute_time())
 }
 
 pub(crate) fn copy_elements(element: &AXUIElement, attribute: &str) -> Option<Vec<CFRetained<AXUIElement>>> {
@@ -166,7 +160,9 @@ pub(crate) fn copy_elements(element: &AXUIElement, attribute: &str) -> Option<Ve
 }
 
 /// Strings of a create-rule CFArray written by an AX copy call.
-pub(super) fn copy_name_array(copy: impl FnOnce(NonNull<*const CFArray>) -> AXError) -> Result<Vec<String>, AXError> {
+pub(super) fn copy_name_array(
+    copy: impl FnOnce(NonNull<*const CFArray>) -> AXError,
+) -> Result<Vec<String>, AXError> {
     let mut output: *const CFArray = ptr::null();
     let error = copy(NonNull::from(&mut output));
     if error != AXError::Success {
@@ -186,7 +182,9 @@ pub(super) fn copy_name_array(copy: impl FnOnce(NonNull<*const CFArray>) -> AXEr
 }
 
 pub(crate) fn bounds(element: &AXUIElement) -> Option<AxBounds> {
-    let position = copy_attribute(element, "AXPosition")?.downcast::<AXValue>().ok()?;
+    let position = copy_attribute(element, "AXPosition")?
+        .downcast::<AXValue>()
+        .ok()?;
     let size = copy_attribute(element, "AXSize")?.downcast::<AXValue>().ok()?;
     let mut point = CGPoint { x: 0.0, y: 0.0 };
     let mut dimensions = CGSize {
