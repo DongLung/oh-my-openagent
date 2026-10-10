@@ -111,16 +111,28 @@ test("#given an extension row orphaned on bindings (a pre-existing violation) #w
     "INSERT INTO alpha_refs (id, binding_seq) VALUES (1, 99)",
     "PRAGMA foreign_keys = ON",
   ])
+  const store = h.store()
+  // The failed migration closes the database in the worker before the error crosses back; wait for
+  // that close (not just the error) so the reopen below never races the worker's teardown.
+  const closed = new Promise<void>((resolve, reject) => {
+    const off = store.onEvent((event) => {
+      if (event.kind === "store_closed") { off(); resolve() }
+    })
+    setTimeout(() => { off(); reject(new Error("waited for the worker to close the failed migration's database; store_closed never fired")) }, 15000).unref?.()
+  })
   let error: unknown
   try {
-    await openAndMigrate(h)
+    await store.identity()
   } catch (caught) {
     error = caught
   }
   // the error crosses the store-worker boundary, so it arrives as a plain Error carrying the code
   expect((error as { code?: string }).code).toBe("gateway_migration_failed")
   expect(String(error)).toContain("bindings")
+  await closed
+  // busy_timeout=0: a still-held lock fails immediately instead of depending on timing.
   const db = new Database(path)
+  db.exec("PRAGMA busy_timeout = 0")
   try {
     expect((db.query("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(GATEWAY_MIGRATIONS.length - 1)
     expect(db.query("SELECT * FROM alpha_refs").all()).toEqual([{ id: 1, binding_seq: 99 }])
