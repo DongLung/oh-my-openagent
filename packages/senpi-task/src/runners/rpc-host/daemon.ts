@@ -148,6 +148,7 @@ async function ensureTaskDaemonOnce(
   const request: EnsureHostInput = {
     socket,
     agentDir: input.agentDir,
+    ...(input.owner === undefined ? {} : { owner: "caller" }),
     hostArgs: launch.hostArgs,
     env: launch.env,
     upgrade: launch.upgrade,

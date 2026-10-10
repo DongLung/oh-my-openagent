@@ -91,6 +91,30 @@ describe("ensureTaskDaemon on an explicit shard endpoint", () => {
     })
   })
 
+  test("#given a p-shard owner #when the shard is ensured #then the ensure opts into the caller's lifetime", async () => {
+    // given
+    const shard = shardFixture()
+    const { port, ensured } = hostPort()
+
+    // when
+    await ensureOn(shard.agentDir, shard.socket, port, { key: shard.key, ownerSessionId: "root-session" })
+
+    // then
+    expect(ensured.map((input) => input.owner)).toEqual(["caller"])
+  })
+
+  test("#given no owner #when an endpoint is ensured #then the ensure does not opt into the caller's lifetime", async () => {
+    // given
+    const shard = shardFixture()
+    const { port, ensured } = hostPort()
+
+    // when
+    await ensureOn(shard.agentDir, shard.socket, port)
+
+    // then
+    expect(ensured.map((input) => input.owner)).toEqual([undefined])
+  })
+
   test("#given a host already listening on the shard #when it is ensured #then it is reused and no sidecar is written", async () => {
     // given
     const shard = shardFixture()
