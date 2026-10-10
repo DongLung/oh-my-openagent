@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
+import { fileURLToPath } from "node:url"
 import { load } from "js-yaml"
 
 const workflowPath = new URL("../.github/workflows/review-claims.yml", import.meta.url)
@@ -54,7 +55,7 @@ async function runQueueGate(ref: string, labels: readonly string[], fetchError =
   }
   // Run the actual workflow step, including its import, so missing wiring fails.
   const originalWorkspace = process.env.GITHUB_WORKSPACE
-  process.env.GITHUB_WORKSPACE = new URL("..", import.meta.url).pathname.replace(/\/$/, "")
+  process.env.GITHUB_WORKSPACE = fileURLToPath(new URL("..", import.meta.url))
   try {
     await run(github, context, core)
     return { outputs, requests }

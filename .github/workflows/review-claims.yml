@@ -49,7 +49,8 @@ jobs:
         uses: actions/github-script@v9
         with:
           script: |
-            const { checkMergeGroupReviewClaims } = await import(`${process.env.GITHUB_WORKSPACE}/script/review-claim-gate.mjs`);
+            const { pathToFileURL } = await import('node:url');
+            const { checkMergeGroupReviewClaims } = await import(pathToFileURL(`${process.env.GITHUB_WORKSPACE}/script/review-claim-gate.mjs`).href);
             await checkMergeGroupReviewClaims({ github, context, core });
       - name: Fail while a review claim label is present
         if: github.event_name == 'pull_request_target'
