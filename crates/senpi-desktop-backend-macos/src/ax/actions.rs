@@ -5,7 +5,8 @@ use objc2_core_foundation::{CFBoolean, CFDate, CFString, CFTimeZone};
 use senpi_desktop_core::error::{CoreResult, DesktopError};
 
 use super::date;
-use super::element::{ax_result, copy_date};
+use super::element::{self, ax_result, copy_date};
+use super::popup;
 
 pub(crate) fn perform(element: &AXUIElement, action: &str) -> CoreResult<()> {
     let native = action_name(action);
@@ -17,6 +18,9 @@ pub(crate) fn perform(element: &AXUIElement, action: &str) -> CoreResult<()> {
 }
 
 pub(super) fn set_value(element: &AXUIElement, value: &str) -> CoreResult<()> {
+    if element::copy_string(element, "AXRole").as_deref() == Some("AXPopUpButton") {
+        return popup::choose(element, value);
+    }
     match copy_date(element, "AXValue") {
         Some(current) => set_date_value(element, value, current),
         None => set_string_value(element, value),
