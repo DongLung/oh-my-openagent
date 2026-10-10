@@ -31,9 +31,14 @@ function v6Fixture(path: string, extra: readonly string[]): void {
   db.close()
 }
 
-function openAndMigrate(h: GatewayHarness): Promise<unknown> {
+/** Opens (and so migrates) the store, then releases its worker connection on success AND failure, so a direct read afterwards never races it. */
+async function openAndMigrate(h: GatewayHarness): Promise<void> {
   const store = h.store()
-  return store.identity().then(() => store.dispose())
+  try {
+    await store.identity()
+  } finally {
+    await store.dispose()
+  }
 }
 
 function snapshot(path: string) {
