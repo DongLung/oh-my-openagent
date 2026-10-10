@@ -277,16 +277,29 @@ function schemaVersion(ctx: StoreContext): number {
 export async function migrate(ctx: StoreContext): Promise<void> {
   if (schemaVersion(ctx) >= GATEWAY_MIGRATIONS.length) return
   for (;;) {
-    const applied = await transaction(ctx, "migrate", () => {
-      const version = schemaVersion(ctx)
-      if (version >= GATEWAY_MIGRATIONS.length) return false
-      for (const statement of GATEWAY_MIGRATIONS[version]) ctx.sql.exec(statement)
-      ctx.sql.exec(`PRAGMA user_version = ${version + 1}`)
-      return true
-    })
-    if (!applied) return
+    const version = schemaVersion(ctx)
+    if (version >= GATEWAY_MIGRATIONS.length) return
+    // The CHECK-widening v7 rebuild must run with foreign_keys OFF, which SQLite only honors when
+    // the pragma is set OUTSIDE the transaction (a table drop would otherwise fire foreign-key
+    // actions from extension tables referencing `bindings`). It is re-enabled and verified with
+    // foreign_key_check before the version bump commits.
+    const needsForeignKeysOff = GATEWAY_NEEDS_FK_OFF.has(version)
+    if (needsForeignKeysOff) ctx.sql.exec("PRAGMA foreign_keys = OFF")
+    try {
+      await transaction(ctx, "migrate", () => {
+        const current = schemaVersion(ctx)
+        if (current !== version) return
+        for (const statement of GATEWAY_MIGRATIONS[current]) ctx.sql.exec(statement)
+        ctx.sql.exec(`PRAGMA user_version = ${current + 1}`)
+      })
+    } finally {
+      if (needsForeignKeysOff) ctx.sql.exec("PRAGMA foreign_keys = ON")
+    }
   }
 }
+
+/** Migration indexes (0-based) whose steps must run with foreign_keys OFF; see migrate(). */
+const GATEWAY_NEEDS_FK_OFF: ReadonlySet<number> = new Set([6])
 
 type ReceiptRecord = {
   readonly args_hash: string

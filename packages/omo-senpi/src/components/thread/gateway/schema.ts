@@ -195,6 +195,10 @@ export const GATEWAY_MIGRATIONS: readonly (readonly string[])[] = [
   // v7: `whatsapp` is a binding platform (the omo-gateway WhatsApp channel binds its chats here).
   // SQLite cannot widen a CHECK in place, so `bindings` is rebuilt with the widened list; every
   // column is carried over verbatim and the two indexes are recreated before the old table drops.
+  // This step runs with foreign_keys OFF (set in migrate()): a table drop would otherwise fire
+  // foreign-key actions from any extension table referencing `bindings`. The AUTOINCREMENT
+  // high-water mark is carried over so a deleted newest row's key is never reused, and
+  // foreign_key_check must pass before the version bump commits.
   [
     `CREATE TABLE bindings_v7 (
       seq INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -223,10 +227,12 @@ export const GATEWAY_MIGRATIONS: readonly (readonly string[])[] = [
       CHECK (direction_inbound = 1 OR direction_outbound = 1)
     )`,
     "INSERT INTO bindings_v7 SELECT seq, binding_id, schema_version, revision, status, platform, account_id, chat_id, thread_id, root_message_id, progress_message_id, session_realm_id, session_durable_id, direction_inbound, direction_outbound, inbound_mode, outbound_events, policy_id, created_at, updated_at, lease_started_at, ttl_seconds, expires_at FROM bindings",
+    "UPDATE sqlite_sequence SET seq = (SELECT seq FROM sqlite_sequence WHERE name = 'bindings') WHERE name = 'bindings_v7'",
     "DROP TABLE bindings",
     "ALTER TABLE bindings_v7 RENAME TO bindings",
     "CREATE UNIQUE INDEX bindings_one_active_thread ON bindings (platform, account_id, chat_id, thread_id) WHERE status = 'active'",
     "CREATE INDEX bindings_session ON bindings (session_durable_id, status)",
+    "SELECT CASE WHEN (SELECT count(*) FROM pragma_foreign_key_check) = 0 THEN 1 ELSE (SELECT 1/0) END",
   ],
 ]
 
