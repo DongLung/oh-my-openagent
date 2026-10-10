@@ -6,7 +6,7 @@
 
 mod civil;
 
-use civil::{civil_seconds, format_civil, format_offset};
+use civil::{civil_seconds, format_civil, format_offset, SECONDS_PER_DAY};
 
 #[cfg(test)]
 mod tests;
@@ -18,8 +18,6 @@ mod live_tests;
 pub(super) const ACCEPTED_FORMS: &str = "YYYY-MM-DD (keeps the control's time of day), \
                                          YYYY-MM-DDTHH:MM[:SS] (local time), or a date-time \
                                          followed by Z or \u{b1}HH:MM (that exact instant)";
-
-const SECONDS_PER_DAY: i64 = 86_400;
 
 /// A calendar day in the proleptic Gregorian calendar.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
