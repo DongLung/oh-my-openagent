@@ -29,15 +29,28 @@ jobs:
     if: github.event_name == 'pull_request_target' || github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # This job only reads the event payload; neither path needs API access.
-    permissions: {}
+    permissions:
+      contents: read
+      pull-requests: read
     concurrency:
       group: review-claim-gate-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: true
     steps:
-      - name: Accept review gate already passed before queue entry
+      - name: Check out the merge-group gate helper
         if: github.event_name == 'merge_group'
-        run: echo "Review claims were checked on the pull request before queue entry."
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: script/review-claim-gate.mjs
+          sparse-checkout-cone-mode: false
+      - name: Recheck current review claims for the queued pull request
+        id: queue-claims
+        if: github.event_name == 'merge_group'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { checkMergeGroupReviewClaims } = await import(`${process.env.GITHUB_WORKSPACE}/script/review-claim-gate.mjs`);
+            await checkMergeGroupReviewClaims({ github, context, core });
       - name: Fail while a review claim label is present
         if: github.event_name == 'pull_request_target'
         uses: actions/github-script@v9
@@ -60,7 +73,7 @@ jobs:
             echo "| Field | Value |"
             echo "| --- | --- |"
             echo "| Job status | ${{ job.status }} |"
-            echo "| PR | #${{ github.event.pull_request.number }} |"
+            echo "| PR | #${{ github.event.pull_request.number || steps.queue-claims.outputs.pr_number || 'unknown' }} |"
             echo "| Event | ${{ github.event.action }} |"
           } >> "$GITHUB_STEP_SUMMARY"
 
