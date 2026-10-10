@@ -68,7 +68,10 @@ pub(super) fn parse(text: &str) -> Option<DateRequest> {
     let (clock, offset) = match rest.find(['Z', '+', '-']) {
         Some(split) => {
             let clock = &rest[..split];
-            (clock.strip_suffix(' ').unwrap_or(clock), Some(parse_offset(&rest[split..])?))
+            (
+                clock.strip_suffix(' ').unwrap_or(clock),
+                Some(parse_offset(&rest[split..])?),
+            )
         }
         None => (rest, None),
     };
@@ -164,9 +167,7 @@ fn parse_clock(text: &str) -> Option<f64> {
         None => 0.0,
         // Only after whole seconds, and never empty.
         Some(fraction)
-            if whole.len() == 8
-                && !fraction.is_empty()
-                && fraction.bytes().all(|byte| byte.is_ascii_digit()) =>
+            if whole.len() == 8 && !fraction.is_empty() && fraction.bytes().all(|byte| byte.is_ascii_digit()) =>
         {
             format!("0.{fraction}").parse().ok()?
         }
@@ -202,5 +203,9 @@ fn digits(text: &str) -> Option<i64> {
 }
 
 fn two_digits(text: &str) -> Option<i64> {
-    if text.len() == 2 { digits(text) } else { None }
+    if text.len() == 2 {
+        digits(text)
+    } else {
+        None
+    }
 }

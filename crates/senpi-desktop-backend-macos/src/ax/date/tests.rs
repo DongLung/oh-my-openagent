@@ -1,4 +1,4 @@
-use super::{DateRequest, WritePath, format_local, parse, write_path};
+use super::{format_local, parse, write_path, DateRequest, WritePath};
 
 /// 2026-09-25T17:00:00+02:00.
 const SEPT_25_17H_CEST: f64 = 812_041_200.0;
@@ -9,7 +9,11 @@ const CET_FROM: f64 = 814_582_800.0;
 
 /// Central European time: +02:00 from `CEST_FROM` to `CET_FROM`, else +01:00.
 fn berlin(at: f64) -> i64 {
-    if (CEST_FROM..CET_FROM).contains(&at) { 7200 } else { 3600 }
+    if (CEST_FROM..CET_FROM).contains(&at) {
+        7200
+    } else {
+        3600
+    }
 }
 
 fn resolve(text: &str, current: f64) -> Result<f64, String> {
@@ -71,13 +75,22 @@ fn a_local_time_repeated_as_clocks_go_back_is_refused_naming_both_offsets() {
 #[test]
 fn a_date_time_without_offset_is_local_wall_clock() {
     assert_eq!(write("2026-10-05T09:30", SEPT_25_17H_CEST), "2026-10-05T09:30:00+02:00");
-    assert_eq!(write("2026-12-21T09:30:15", SEPT_25_17H_CEST), "2026-12-21T09:30:15+01:00");
-    assert_eq!(write("2026-12-21 23:59:59.5", SEPT_25_17H_CEST), "2026-12-21T23:59:59+01:00");
+    assert_eq!(
+        write("2026-12-21T09:30:15", SEPT_25_17H_CEST),
+        "2026-12-21T09:30:15+01:00"
+    );
+    assert_eq!(
+        write("2026-12-21 23:59:59.5", SEPT_25_17H_CEST),
+        "2026-12-21T23:59:59+01:00"
+    );
 }
 
 #[test]
 fn a_date_time_with_offset_is_that_instant() {
-    assert_eq!(write("2026-10-05T07:30Z", SEPT_25_17H_CEST), "2026-10-05T09:30:00+02:00");
+    assert_eq!(
+        write("2026-10-05T07:30Z", SEPT_25_17H_CEST),
+        "2026-10-05T09:30:00+02:00"
+    );
     assert_eq!(write("2026-10-05T09:30:00-04:00", 0.0), "2026-10-05T15:30:00+02:00");
     assert_eq!(write("2026-10-05T07:30:00.000Z", 0.0), "2026-10-05T09:30:00+02:00");
     assert_eq!(parse("2001-01-01T00:00:00Z"), Some(DateRequest::Instant(0.0)));
